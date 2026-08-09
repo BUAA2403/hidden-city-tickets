@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>甩尾票 · 联程比直飞更便宜</title>
+  <meta name="description" content="搜索「买联程、只飞前半段」的甩尾票方案，找出比直飞更便宜的低价机票。" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M4 20 L44 8 L30 40 L22 27 L4 20 Z' fill='url(%23g)'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <svg class="brand-icon" viewBox="0 0 48 48" aria-hidden="true">
+          <defs>
+            <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#6366f1"/>
+            </linearGradient>
+          </defs>
+          <path d="M4 20 L44 8 L30 40 L22 27 L4 20 Z" fill="url(#brandGrad)"/>
+          <circle cx="4" cy="20" r="3" fill="#f8fafc"/>
+          <circle cx="22" cy="27" r="3" fill="#f8fafc"/>
+        </svg>
+        <span class="brand-name">甩尾票</span>
+        <span class="brand-sub">Hidden City</span>
+      </a>
+      <div class="header-status" id="statusBadge" title="数据源状态">
+        <span class="status-dot"></span><span id="statusText">准备就绪</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <p class="hero-eyebrow">Hidden City Ticketing</p>
+          <h1>联程机票，<br/>可能比直飞 <span class="grad-text">更便宜</span></h1>
+          <p class="hero-sub">
+            比如 广州→北京 直飞通常上千元，而 广州→北京→长春 的联程票有时反而更便宜 ——
+            买全程票、只在第一站下机，省下的就是“甩尾差价”。
+          </p>
+          <div class="example-chips" id="exampleChips">
+            <span class="chip-label">试试：</span>
+            <button class="chip" data-from="CAN" data-to="PEK">广州 → 北京</button>
+            <button class="chip" data-from="SHA" data-to="PEK">上海 → 北京</button>
+            <button class="chip" data-from="CTU" data-to="SHA">成都 → 上海</button>
+            <button class="chip" data-from="SZX" data-to="PEK">深圳 → 北京</button>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <svg viewBox="0 0 520 180" class="hero-route">
+            <defs>
+              <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#818cf8"/>
+              </linearGradient>
+            </defs>
+            <path d="M70 130 Q160 60 260 90" fill="none" stroke="url(#routeGrad)" stroke-width="3" stroke-dasharray="8 8" class="route-path"/>
+            <path d="M260 90 Q360 120 450 60" fill="none" stroke="#64748b" stroke-width="3" stroke-dasharray="5 8" class="route-path-skip"/>
+            <g class="plane-dot">
+              <path d="M-14 0 L14 0 M0 -6 L0 6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+              <circle r="20" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.5"/>
+            </g>
+            <g transform="translate(70 150)">
+              <circle r="16" fill="#0f172a" stroke="#38bdf8" stroke-width="3"/>
+              <text y="4.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">CAN</text>
+            </g>
+            <g transform="translate(260 110)">
+              <circle r="22" fill="#38bdf8" stroke="#fff" stroke-width="4" class="pulse"/>
+              <text y="5" text-anchor="middle" fill="#0f172a" font-size="12" font-weight="800">PEK</text>
+            </g>
+            <g transform="translate(450 80)">
+              <circle r="16" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+              <text y="4.5" text-anchor="middle" fill="#cbd5e1" font-size="11" font-weight="700">CGQ</text>
+            </g>
+            <text x="165" y="46" fill="#e2e8f0" font-size="12">飞这一段 ✓</text>
+            <text x="330" y="158" fill="#94a3b8" font-size="12">这一段不坐 ✕</text>
+          </svg>
+        </div>
+
+        <form class="search-card" id="searchForm" autocomplete="off">
+          <div class="field field-from">
+            <label for="fromInput">出发地</label>
+            <div class="input-wrap">
+              <input id="fromInput" type="text" placeholder="城市或机场，如 广州 / CAN" required />
+              <div class="suggest" id="fromSuggest" hidden></div>
+            </div>
+          </div>
+          <button type="button" class="swap-btn" id="swapBtn" title="交换出发地和目的地" aria-label="交换">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="field field-to">
+            <label for="toInput">目的地</label>
+            <div class="input-wrap">
+              <input id="toInput" type="text" placeholder="城市或机场，如 北京 / PEK" required />
+              <div class="suggest" id="toSuggest" hidden></div>
+            </div>
+          </div>
+          <div class="field field-date">
+            <label for="dateInput">出发日期</label>
+            <input id="dateInput" type="date" required />
+          </div>
+          <div class="field field-cabin">
+            <label for="cabinSelect">舱位</label>
+            <select id="cabinSelect">
+              <option value="economy" selected>经济舱</option>
+              <option value="business">公务/头等舱</option>
+            </select>
+          </div>
+          <button type="submit" class="search-btn" id="searchBtn">
+            <span class="btn-label">搜索甩尾方案</span>
+            <svg class="btn-plane" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 12 L22 3 L15 21 L11 13 L2 12 Z" fill="currentColor"/></svg>
+          </button>
+        </form>
+        <p class="search-hint">实时数据：国内查同程（失败转携程），国际查 Trip.com；源不可用会提示重试。</p>
+        <p class="disclaimer-note">⚠️ 本站用于发现甩尾<b>城市</b>与参考价。组合可能不唯一，且可能为共享航班，具体方案以购票网站为准；购票网站默认只显示直飞，请手动打开“中转”选项查看更多方案。</p>
+      </div>
+    </section>
+
+    <section class="results" id="results" hidden>
+      <div class="container">
+        <div class="source-note" id="sourceNote" hidden></div>
+
+        <div class="summary" id="summary" hidden></div>
+        <div id="loading" class="loading" hidden>
+          <div class="spinner"></div>
+          <p>正在搜索联程与直飞价格，找出最划算的甩尾方案…</p>
+        </div>
+        <div id="dealList" class="deal-list"></div>
+        <div id="emptyState" class="empty-state" hidden></div>
+        <div id="directPanel" hidden></div>
+      </div>
+    </section>
+
+    <section class="explain" id="explain">
+      <div class="container">
+        <h2 class="section-title">什么是甩尾票？</h2>
+        <p class="section-sub">航空公司给联程/中转航线定价时，经常参考“最终目的地”的市场，而不是每段分开算。于是有些路线的<strong>全程联程票比直飞票还便宜</strong>。</p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <h3>搜索路线</h3>
+            <p>输入出发地和目的地，系统同时查直飞价和所有可行的“经停”联程价。</p>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <h3>对比差价</h3>
+            <p>找出“买 出发→目的地→尾巴 全程票”比“直飞 出发→目的地”更便宜的方案。</p>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <h3>行李要规划好</h3>
+            <p>买全程票，在目的地直接下机，不乘坐后续航段。行李若托运，务必在柜台要求只托运到第一程（下机）目的地、不要直挂到最终目的地；部分航司/渠道不允许，规则以航司为准。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="risk" id="risk">
+      <div class="container">
+        <h2 class="section-title">风险提示</h2>
+        <div class="risk-grid">
+          <div class="risk-card">
+            <h3>✈️ 航司禁止</h3>
+            <p>多数航空公司运输条款明令禁止“隐藏城市/Hidden City”购票，可能被要求补差价、取消后续航班甚至影响常旅客账户。</p>
+          </div>
+          <div class="risk-card">
+            <h3>🧳 托运要谨慎</h3>
+            <p>托运行李默认会按票面送到最终目的地。如确需托运，请在值机柜台要求只托运到第一程（下机）目的地、不要直挂；部分航司/渠道不允许这样做，行李规则请以航司为准。</p>
+          </div>
+          <div class="risk-card">
+            <h3>↩️ 无回程保障</h3>
+            <p>只适合单程、不回头的行程；航变、退改签、延误时的权益会非常复杂。</p>
+          </div>
+          <div class="risk-card">
+            <h3>🪙 里程可能作废</h3>
+            <p>未乘坐航段通常不计入里程，航司也可能判定你违规而冻结里程。</p>
+          </div>
+        </div>
+        <p class="risk-foot">本站仅提供价格对比信息，是否采用由你自行判断；请先阅读航司运输条款。</p>
+        <p class="risk-foot">跳转说明：链接仅作思路参考；携程默认只显示直飞，请手动打开“中转”选项，航班组合与价格以购票网站为准。</p>
+      </div>
+    </section>
+
+    <section class="faq" id="faq">
+      <div class="container">
+        <h2 class="section-title">常见问题</h2>
+        <details class="faq-item">
+          <summary>为什么联程票会比直飞便宜？</summary>
+          <p>航司定价是“市场导向”的：枢纽间的黄金航线（如广州-北京）需求大、票价高；而飞往次一级城市（如长春）的经停航线竞争少，航司愿意用更低的全程价抢客源。于是“买 广州-北京-长春”反而比“只买 广州-北京”便宜。</p>
+        </details>
+        <details class="faq-item">
+          <summary>什么情况下值得用甩尾票？</summary>
+          <p>目的地是大型枢纽城市（北京、上海、广州、深圳、成都等）、单程出行、行李能只托运到第一程目的地（或只带随身行李）、且对航司会员权益不敏感时，最值得尝试。反向（飞小城市）一般没有这种机会。</p>
+        </details>
+        <details class="faq-item">
+          <summary>数据是实时的吗？</summary>
+          <p>全部实时：国内同程（失败转携程）、国际 Trip.com；源不可用会提示重试。</p>
+        </details>
+        <details class="faq-item">
+          <summary>为什么不直接提供机票预订？</summary>
+          <p>本站用于发现甩尾城市与参考价；航班组合与价格以购票网站为准，建议按日期/航班号自行搜索核对。</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>甩尾票 · Hidden City Finder — 只提供甩尾思路与参考价，跳转仅供参考，请遵守航司运输条款。</p>
+      <p class="footer-meta">数据源：同程旅行（国内实时） · Trip.com（国际实时） · 携程（国内备用）</p>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
