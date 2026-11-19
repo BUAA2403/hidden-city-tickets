@@ -44,8 +44,11 @@
   function defaultDate() {
     const d = new Date();
     d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
+    const parts = [d.getFullYear(), d.getMonth() + 1, d.getDate()];
+    return parts.map((part) => String(part).padStart(2, '0')).join('-');
   }
+
+  const quoteSources = { lycom: '同程', tripcom: 'Trip.com', ctrip: '携程' };
 
   // ---------- 自动补全 ----------
   function bindSuggest(input, key, otherKey) {
@@ -140,7 +143,7 @@
     const cabin = p.get('cabin');
     if (from && cities.some((c) => c.code === from)) window.__selectCity('from', from);
     if (to && cities.some((c) => c.code === to)) window.__selectCity('to', to);
-    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) dateInput.value = date;
+    if (date !== null) dateInput.value = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : '';
     if (cabin === 'economy' || cabin === 'business') cabinSelect.value = cabin;
   }
 
@@ -179,8 +182,8 @@
       if (!selected.from) { fromInput.focus(); return; }
       toInput.focus(); return;
     }
-    const date = dateInput.value || defaultDate();
-    dateInput.value = date;
+    if (!dateInput.reportValidity()) return;
+    const date = dateInput.value;
     writeUrlParams();
 
       loading.hidden = false;
@@ -189,7 +192,7 @@
       directPanel.hidden = true;
       summaryBox.hidden = true;
       sourceNote.hidden = true;
-      document.querySelector('#loading p').textContent = '正在搜索直飞与联程实时票价（国内约 2–5 秒，国际约 10–20 秒）…';
+      document.querySelector('#loading p').textContent = '正在核对所选日期的直飞和多条联程报价…';
     searchBtn.disabled = true;
     searchBtn.querySelector('.btn-label').textContent = '搜索中…';
     results.hidden = false;
@@ -224,32 +227,33 @@
 
   // ---------- 渲染 ----------
   function renderResults(data) {
-    // 数据源提示
-    sourceNote.hidden = false;
-    sourceNote.className = 'source-note live';
-    sourceNote.innerHTML = `<span>🟢</span><div><b>${esc(data.sourceLabel || '')}</b> · ${esc(data.sourceNote || '')}</div>`;
-    statusText.textContent = '实时数据已接通';
-
     const q = data.query;
     const direct = data.direct.best;
     const bestDeal = data.deals[0];
+    const directSource = quoteSources[data.direct.source];
+
+    // 数据源提示
+    sourceNote.hidden = false;
+    sourceNote.className = 'source-note live';
+    sourceNote.innerHTML = `<span>🟢</span><div><b>${esc(q.date)} 出发 · ${esc(data.sourceLabel || '')}</b> · ${esc(data.sourceNote || '')}</div>`;
+    statusText.textContent = '实时数据已接通';
 
     // 汇总
     summaryBox.hidden = false;
     summaryBox.innerHTML = `
       <div class="summary-card">
-        <div class="label">✈️ 直飞最低价 ${esc(q.from.city)} → ${esc(q.to.city)}</div>
+        <div class="label">✈️ ${esc(directSource)}直飞参考价 ${esc(q.from.city)} → ${esc(q.to.city)}</div>
         <div class="value">${fmtMoney(direct.price)}</div>
         <div class="sub">${esc(direct.airlineName)} ${esc(direct.flightNo)} · ${direct.depTime} → ${direct.arrTime}</div>
       </div>
       <div class="summary-card highlight">
         <div class="label">💡 甩尾全程票（买 ${esc(q.from.city)}→${esc(q.to.city)}→${esc(bestDeal ? bestDeal.skipCity : '…')}）</div>
         <div class="value">${bestDeal ? fmtMoney(bestDeal.totalPrice) : '—'}</div>
-        <div class="sub">${bestDeal ? bestDeal.legs.map((l) => l.flightNo).join(' + ') : ''}</div>
+        <div class="sub">${bestDeal ? esc([quoteSources[bestDeal.source], ...bestDeal.legs.map((l) => l.flightNo)].filter(Boolean).join(' · ')) : ''}</div>
       </div>
       <div class="save-big">
         ${bestDeal
-          ? `<div class="save-amount">省 ${fmtMoney(bestDeal.saveAmount)}</div>
+          ? `<div class="save-amount">参考差价 ${fmtMoney(bestDeal.saveAmount)}</div>
              <div class="save-note">${bestDeal.savePercent}% · 只飞到 ${esc(q.to.city)} 就下机，后续 ${esc(bestDeal.skipCity)} 段不坐</div>`
           : `<div class="save-amount" style="color:var(--muted)">暂无差价</div>
              <div class="save-note">换一个枢纽城市目的地试试</div>`}
@@ -263,7 +267,7 @@
       emptyState.hidden = false;
       emptyState.innerHTML = `
         <div class="empty-icon">🔍</div>
-        <h3>没有找到划算的甩尾方案</h3>
+        <h3>当日暂无划算的甩尾方案</h3>
         <p>${esc(data.emptyReason || '该路线暂时没有发现甩尾差价。')}</p>`;
     }
 
@@ -316,9 +320,13 @@
     const [l1, l2] = d.legs;
     const top = d.rank === 1 && d.saveAmount >= 50;
     const typeLabel = { hidden: '甩尾巴', intl: '甩国际段', roundtrip: '甩返程' }[d.dealType] || '甩尾巴';
-    const dateTag = d.shiftDate
-      ? `<span class="date-shift-tag" title="该价格对应的出发日期不是你的搜索日期">改期 ${d.shiftDate}</span>`
-      : '';
+    const quoteSource = quoteSources[d.source];
+    const { through, direct } = d.booking;
+    const route = `${q.from.city}(${q.from.code}) → ${q.to.city}(${q.to.code}) → ${l2.to.city}(${l2.to.code})`;
+    const flightNos = [l1.flightNo, l2.flightNo].filter(Boolean).join(' + ');
+    const dates = `${q.date} 出发${d.returnDate ? `，${d.returnDate} 返程` : ''}`;
+    const prices = `${quoteSource}全程参考价 ${fmtMoney(d.totalPrice)}，${direct.provider}直飞参考价 ${fmtMoney(d.directPrice)}，参考差价 ${fmtMoney(d.saveAmount)}。`;
+    const copyText = [dates, route, flightNos, prices].filter(Boolean).join(' · ');
     const fetchedAt = d.fetchedAt
       ? (() => { const t = new Date(d.fetchedAt); const p = (n) => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}`; })()
       : '';
@@ -326,7 +334,7 @@
       <article class="deal-card ${top ? 'top' : ''}">
         <div class="route-wrap">${routeSvg(d)}</div>
         <div class="deal-mid">
-          <h3 class="deal-title">${esc(q.from.city)} → <span class="dest">${esc(q.to.city)}</span>（在 ${esc(q.to.city)} 下机）<span class="deal-type-tag" data-type="${esc(d.dealType || 'hidden')}">${typeLabel}</span>${dateTag}</h3>
+          <h3 class="deal-title">${esc(q.from.city)} → <span class="dest">${esc(q.to.city)}</span>（在 ${esc(q.to.city)} 下机）<span class="deal-type-tag" data-type="${esc(d.dealType || 'hidden')}">${typeLabel}</span></h3>
           <p class="deal-tagline">买 ${esc(q.from.city)}→${esc(q.to.city)}→${esc(d.skipCity)} 全程票 · 甩掉最后一段</p>
           <div class="flight-rows">
             <div class="flight-row">
@@ -336,7 +344,7 @@
               <span class="skip-tag" style="background:var(--green-bg);color:#047857">你坐这段</span>
             </div>
             <div class="flight-row skip">
-              <span class="airline">${esc(l2.airlineName)}</span><span class="no">${esc(l2.flightNo)}</span>
+              <span class="airline">${esc(l2.airlineName)}</span><span class="no">${esc(l2.flightNo || '—')}</span>
               <span class="times">${l2.depTime} <span class="arrow">→</span> ${l2.arrTime}</span>
               <span class="city">${esc(l2.from.city)} · ${esc(l2.to.city)}</span>
               <span class="skip-tag">不坐 ✕</span>
@@ -347,15 +355,15 @@
           ${fetchedAt ? `<p class="fetched-at">抓取于 ${fetchedAt} · 特价可能已变动</p>` : ''}
         </div>
         <div class="deal-right">
-          <div class="through-price">${fmtMoney(d.totalPrice)} <small>全程参考</small></div>
-          <div class="direct-compare">直飞 <s>${fmtMoney(d.directPrice)}</s></div>
-          <span class="save-pill">省 ${fmtMoney(d.saveAmount)} · ${d.savePercent}%</span>
+          <div class="through-price">${fmtMoney(d.totalPrice)} <small>${esc(quoteSource)}全程参考价</small></div>
+          <div class="direct-compare">${esc(direct.provider)}直飞参考价 ${fmtMoney(d.directPrice)}</div>
+          <span class="save-pill">参考差价 ${fmtMoney(d.saveAmount)} · ${d.savePercent}%</span>
           <div class="deal-actions">
-            <a class="btn-primary" href="${d.booking.through.ctrip}" target="_blank" rel="noopener" title="${esc(d.booking.through.note || '')}">查看联程票</a>
-            <a class="btn-ghost" href="${d.booking.direct.ctrip}" target="_blank" rel="noopener">直飞对比</a>
-            <button class="btn-copy" data-copy="${esc(`${q.from.city}(${q.from.code}) → ${q.to.city}(${q.to.code}) → ${d.skipCity}(${d.skip}) 全程 ${fmtMoney(d.totalPrice)}，比直飞 ${fmtMoney(d.directPrice)} 省 ${fmtMoney(d.saveAmount)}。`)}">复制</button>
+            <a class="btn-primary" href="${esc(through.ctrip)}" target="_blank" rel="noopener">去${esc(through.provider)}核价</a>
+            <a class="btn-ghost" href="${esc(direct.ctrip)}" target="_blank" rel="noopener">直飞核价</a>
+            <button class="btn-copy" data-copy="${esc(copyText)}">复制</button>
           </div>
-          <p class="link-note">${esc(d.booking.through.note || '')}</p>
+          <p class="link-note">${esc(through.note || '')}</p>
         </div>
       </article>`;
   }
