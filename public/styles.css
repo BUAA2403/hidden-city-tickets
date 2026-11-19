@@ -338,6 +338,7 @@ input, select { font-family: inherit; }
 .empty-state .empty-icon { font-size: 40px; }
 .empty-state h3 { margin: 12px 0 6px; font-size: 18px; }
 .empty-state p { color: var(--muted); font-size: 14px; max-width: 520px; margin: 0 auto; }
+.empty-state .deal-actions { justify-content: center; }
 
 /* ---------- Loading ---------- */
 .loading { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 60px 0; color: var(--muted); }

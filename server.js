@@ -113,7 +113,7 @@ const server = http.createServer(async (req, res) => {
         providers: {
           tripcom: '实时 · 国际航线（FlightSelectSearch 直连）',
           lycom: '实时 · 国内航线（同程接口直连）',
-          ctrip: '备用 · 国内航线（携程浏览器会话，风控时可自动启用）',
+          ctrip: process.env.CTRIP_BROWSER_ENABLED === '1' ? '备用 · 国内航线（本机浏览器）' : '浏览器备用源未启用',
           skyscanner: '仅提供跳转链接',
         },
         config: {
@@ -150,7 +150,8 @@ const server = http.createServer(async (req, res) => {
         mode: String(body.mode || 'auto'),
         cabin: String(body.cabin || 'economy'),
       });
-      return sendJson(res, result.error ? 400 : 200, result);
+      const { statusCode, ...payload } = result;
+      return sendJson(res, statusCode || (payload.error ? 400 : 200), payload);
     }
 
     if (req.method === 'GET' && p.startsWith('/api/')) {
