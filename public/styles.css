@@ -250,18 +250,6 @@ input, select { font-family: inherit; }
   padding: 1px 10px;
 }
 .deal-type-tag[data-type="roundtrip"] { background: #fdf2f8; color: #be185d; border-color: #fbcfe8; }
-.date-shift-tag {
-  display: inline-block;
-  margin-left: 8px;
-  vertical-align: 2px;
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fcd34d;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 1px 10px;
-}
 .fetched-at {
   margin: 8px 0 0;
   font-size: 11.5px;
@@ -296,7 +284,6 @@ input, select { font-family: inherit; }
 .through-price { font-size: 30px; font-weight: 800; line-height: 1.15; }
 .through-price small { font-size: 13px; color: var(--muted); font-weight: 500; }
 .direct-compare { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
-.direct-compare s { color: var(--muted); }
 .save-pill {
   display: inline-block; margin-top: 8px;
   background: var(--green-bg); color: #047857; font-weight: 800; font-size: 14px;
@@ -338,7 +325,6 @@ input, select { font-family: inherit; }
 .empty-state .empty-icon { font-size: 40px; }
 .empty-state h3 { margin: 12px 0 6px; font-size: 18px; }
 .empty-state p { color: var(--muted); font-size: 14px; max-width: 520px; margin: 0 auto; }
-.empty-state .deal-actions { justify-content: center; }
 
 /* ---------- Loading ---------- */
 .loading { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 60px 0; color: var(--muted); }

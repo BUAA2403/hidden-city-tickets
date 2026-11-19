@@ -41,7 +41,7 @@ test('同程请求只采用对应出发日期的报价', async (t) => {
   assert.equal(await lyCalendar('CAN', 'PEK', date, [1]), null);
 });
 
-test('同程一次查询续程日期范围并优先展示当天方案', async (t) => {
+test('同程只查询当天并核对中转机场', async (t) => {
   const oldLimit = process.env.LYCOM_TAILS_LIMIT;
   process.env.LYCOM_TAILS_LIMIT = '2';
   t.after(() => {
@@ -58,7 +58,7 @@ test('同程一次查询续程日期范围并优先展示当天方案', async (t
     ] : [
       { flydate: '2030-12-11', price: 350, transit: 'PEK', flightTrainType: 0, flightno: 'CA1001,CA1002' },
       { flydate: '2030-12-10', price: 500, transit: 'PEK', flightTrainType: 0, flightno: 'CA1001,CA1002' },
-      { flydate: '2030-12-09', price: 100, transit: 'PKX', flightTrainType: 0, flightno: 'CZ1001,CZ1002' },
+      { flydate: '2030-12-10', price: 100, transit: 'PKX', flightTrainType: 0, flightno: 'CZ1001,CZ1002' },
       { flydate: '2030-12-13', price: 100, transit: 'PEK', flightTrainType: 0, flightno: 'CA1001,CA1002' },
     ];
     return response({ body: { fzpriceinfos: entries } });
@@ -68,11 +68,11 @@ test('同程一次查询续程日期范围并优先展示当天方案', async (t
     EndPort, QueryBegDate, QueryEndDate,
   ]), [
     ['PEK', '2030-12-10', '2030-12-10'],
-    ['CGQ', '2030-12-08', '2030-12-12'],
-    ['HRB', '2030-12-08', '2030-12-12'],
+    ['CGQ', '2030-12-10', '2030-12-10'],
+    ['HRB', '2030-12-10', '2030-12-10'],
   ]);
   assert.deepEqual(result.deals.map(({ shiftDate, saveAmount }) => [shiftDate, saveAmount]), [
-    [null, 400], ['2030-12-11', 550],
+    [undefined, 400],
   ]);
   assert.equal(result.partialSearch, true);
   assert.equal(result.direct.cityLevel, true);
