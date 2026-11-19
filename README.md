@@ -7,12 +7,15 @@
 **很多时候直飞或中转（正常搜索）就是最低价，甩尾在正常搜索票价明显过高时再考虑（如平时直飞最低价约600CNY,计划出行的一天变为1200CNY）。**
 
 ## 快速开始
-需要 Node.js 18+
+需要 Node.js 18 或更高版本。进入项目目录并运行：
+
+```bash
+node server.js
+```
+
 然后打开 http://localhost:3000 。
 
-Windows 下也可以直接双击 `start.bat`（要求 PATH 里有 `node`；没有的话脚本会自动探测本机 Node 或提示安装）。脚本启动前会先检测端口是否已被占用：如果服务已经在运行，会直接提示并打开浏览器，不会重复启动报 `EADDRINUSE`。
-
-
+Windows 下也可以双击 `start.bat` 启动并打开浏览器。如果端口上的本项目已经在运行，脚本会直接打开它。携程浏览器备用源需要 Node.js 22 或更高版本。
 
 
 ## 功能
@@ -30,9 +33,9 @@ Windows 下也可以直接双击 `start.bat`（要求 PATH 里有 `node`；没�
 
 
 ## 自定义环境变量
-在项目根目录的env.txt中修改变量，并将该文件重命名为**.env**，打开编辑后重启服务即可
+将项目根目录的 `env.txt` 复制为 `.env`，按需修改后重启服务。环境中已有的同名变量优先。
 
-常用变量（完整清单见 `.env.example`）：
+常用变量如下。默认值指未设置变量时的值，`env.txt` 为扩大搜索范围提供了不同的候选数示例。
 | 变量 | 作用 | 默认 |
 | --- | --- | --- |
 | `PORT` | 服务端口 | 3000 |
@@ -45,7 +48,7 @@ Windows 下也可以直接双击 `start.bat`（要求 PATH 里有 `node`；没�
 
 修改后必须重启服务才会生效（当前运行中的进程不会热加载）。
 
-搜索为纯实时模式：国内航线先查同程旅行（约 2–5 秒），失败自动转携程浏览器会话；国际航线查 Trip.com。所有实时源都不可用时会明确提示重试，不展示演示数据。
+搜索使用实时数据。国内航线先查同程旅行，失败时尝试携程浏览器会话。国际航线查 Trip.com。候选搜索有时间上限，搜索超时时仍可返回已查到的直飞参考价和候选方案。没有可用的直飞报价时会提示重试。
 
 
 
@@ -70,6 +73,8 @@ Windows 下也可以直接双击 `start.bat`（要求 PATH 里有 `node`；没�
 
 ### QA 工具
 
+运行回归测试：`node --test test/search.test.js`。票价测试使用固定响应，HTTP 测试在本机临时端口运行。
+
 `tools/shot.js` 可用无头 Edge 截取指定页面的渲染结果（等待选择器出现后截图）：
 
 ```bash
@@ -83,7 +88,7 @@ node tools/shot.js "http://localhost:3000/?from=CAN&to=PEK" shot.png ".deal-card
 - **国内航线（实时 · 同程旅行）**：`lib/lycom-live.js` 直接调用 `www.ly.com` 的 `getpricecalendar` 接口（纯 HTTP，无需浏览器/签名）。直飞价用 `travelTypes:[1]`（仅直飞）查询；甩尾价查询 出发→尾巴 的全网最低联程，过滤“经目的地中转”的行程（含两段航班号、时刻、中转城市）。**已过滤空铁联运、单航班经停等非真实换机中转**，确保展示的是两段真实航班。目标日经不到目的地时，自动扫描前后 2 天给出“最近可用日期”的方案并明确标注日期。注意：同程航班列表页只展示直飞，不展示这类“经目的地中转”的联程方案，因此“查看联程票”会跳到**携程**同日搜索；携程默认也只显示直飞，需要手动打开“中转”选项查看联程。直飞对比仍留在同程并带 `&flightno=` 展开目标航班。
 - **国际航线（实时 · Trip.com）**：`lib/live.js` 直接调用 `www.trip.com` 的 `FlightSelectSearch` 接口（纯 HTTP，无需浏览器）。直飞价用单段查询，甩尾全程价用「出发→目的地→尾巴」两段联程查询，逐条对比。已验证：新加坡→香港、东京→上海、香港→台北 均返回真实航班与价格。购票链接为 Trip.com 纯航班列表页（`/flights/…/tickets-xxx-yyy/?ddate=…&curr=CNY&locale=zh-CN`），不再是“机+酒”捆绑页，且强制人民币显示，避免币种导致的价差。**舱位**：经济舱（`sgrade:0`）与公务舱（`sgrade:2`）均支持实时查询；国内航线因数据源限制暂只提供经济舱实时价，选择公务/头等舱时会明确提示到购票网站查询。
 - **备用（国内 · 携程浏览器会话）**：`lib/ctrip-browser.js` 可在同程不可用时启动本机**真实 Edge 浏览器**（可见窗口、临时配置）访问 `flights.ctrip.com` 抓取列表页。注意：携程对高频查询有 IP 风控（会临时返回“未找到航班”），因此仅作备用。
-- **Skyscanner Partner API**：设置环境变量 `SKYSCANNER_API_KEY`（在 [developers.skyscanner.net](https://developers.skyscanner.net) 申请）可启用；未配置时自动跳过。
+- **Skyscanner**：仅提供搜索跳转链接。
 
 
 
@@ -97,9 +102,9 @@ node tools/shot.js "http://localhost:3000/?from=CAN&to=PEK" shot.png ".deal-card
 
 1. 安装 Node.js 18 或更高版本（https://nodejs.org），并保证命令行里能执行 `node`；
 2. 能联网访问 `www.ly.com`（同程）和 `www.trip.com`（国际航线），这两个是主要实时数据源；
-3. 携程备用源（`ctrip-browser.js`）会自动探测本机 Edge/Chrome（也支持 `EDGE_PATH` 环境变量指定），**没有浏览器也不影响**——该源只在同程失败时启用；若所有实时源都不可用，站点会明确提示稍后重试。
+3. 携程备用源只在同程失败时启用，需要 Node.js 22 或更高版本及 Edge/Chrome。也可以通过 `EDGE_PATH` 指定浏览器路径。
 
-发送前建议删掉（如果存在）你机器上的 `.env` 文件（里面有个人配置），保留 `.env.example` 让对方案例参考。
+分发时排除含有个人配置的 `.env`，保留 `env.txt` 作为配置示例。
 
 对方拿到后：
 ```bash
@@ -124,7 +129,7 @@ node server.js        # 或 Windows 双击 start.bat
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/cities` | 城市/机场列表 |
-| GET | `/api/status` | 服务与数据源状态 |
+| GET | `/api/status` | 服务信息、数据源说明与配置 |
 | POST | `/api/search` | `{ from: "CAN", to: "PEK", date: "2026-08-20", cabin: "economy" }`（`cabin`: `economy` / `business`） |
 
 ## 项目结构
