@@ -20,6 +20,7 @@
   const statusBadge = $('#statusBadge');
   const statusText = $('#statusText');
 
+  let searchController;
   let cities = [];
   let selected = { from: null, to: null };
   const choosers = {};
@@ -68,9 +69,9 @@
       ).slice(0, 8);
     }
 
-    function render(list) {
+    function render(list, activeIndex = -1) {
       current = list;
-      active = -1;
+      active = activeIndex;
       if (!list.length) { box.hidden = true; return; }
       box.innerHTML = list.map((c, i) => `
         <div class="suggest-item ${i === active ? 'active' : ''}" data-i="${i}">
@@ -111,8 +112,8 @@
 
     input.addEventListener('keydown', (e) => {
       if (box.hidden) return;
-      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, current.length - 1); render(current); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(current); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, current.length - 1); render(current, active); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(current, active); }
       else if (e.key === 'Enter') {
         e.preventDefault();
         if (active >= 0 && current[active]) choose(current[active]);
@@ -186,13 +187,16 @@
     const date = dateInput.value;
     writeUrlParams();
 
-      loading.hidden = false;
-      dealList.innerHTML = '';
-      emptyState.hidden = true;
-      directPanel.hidden = true;
-      summaryBox.hidden = true;
-      sourceNote.hidden = true;
-      document.querySelector('#loading p').textContent = '正在核对所选日期的直飞和多条联程报价…';
+    searchController?.abort();
+    const controller = new AbortController();
+    searchController = controller;
+    loading.hidden = false;
+    dealList.innerHTML = '';
+    emptyState.hidden = true;
+    directPanel.hidden = true;
+    summaryBox.hidden = true;
+    sourceNote.hidden = true;
+    document.querySelector('#loading p').textContent = '正在搜索直飞与联程实时票价。查询时间随航线、候选数量和数据源变化。';
     searchBtn.disabled = true;
     searchBtn.querySelector('.btn-label').textContent = '搜索中…';
     results.hidden = false;
@@ -201,6 +205,7 @@
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: selected.from.code,
@@ -210,16 +215,29 @@
         }),
       });
       const data = await res.json();
+      if (controller.signal.aborted) return;
+      if (res.status === 503) {
+        emptyState.hidden = false;
+        const links = (data.bookingLinks || []).map(({ label, url }) =>
+          `<a class="btn-ghost" href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a>`).join('');
+        emptyState.innerHTML = `<h3>实时报价暂不可用</h3><p>${esc(data.error)}</p><div class="deal-actions">${links}</div>`;
+        statusText.textContent = '实时报价暂不可用';
+        return;
+      }
       if (!res.ok) throw new Error(data.error || '搜索失败');
       renderResults(data);
     } catch (e) {
+      if (controller.signal.aborted) return;
       loading.hidden = true;
       emptyState.hidden = false;
       emptyState.innerHTML = `<div class="empty-icon">😥</div><h3>出错了</h3><p>${esc(e.message)}</p>`;
     } finally {
-      loading.hidden = true;
-      searchBtn.disabled = false;
-      searchBtn.querySelector('.btn-label').textContent = '搜索甩尾方案';
+      if (searchController === controller) {
+        searchController = null;
+        loading.hidden = true;
+        searchBtn.disabled = false;
+        searchBtn.querySelector('.btn-label').textContent = '搜索甩尾方案';
+      }
     }
   }
 
@@ -235,7 +253,7 @@
     // 数据源提示
     sourceNote.hidden = false;
     sourceNote.className = 'source-note live';
-    sourceNote.innerHTML = `<span>🟢</span><div><b>${esc(q.date)} 出发 · ${esc(data.sourceLabel || '')}</b> · ${esc(data.sourceNote || '')}</div>`;
+    sourceNote.innerHTML = `<span>🟢</span><div><b>${esc(q.date)} 出发 · ${esc(data.sourceLabel || '')}</b> · ${esc([data.sourceNote, data.direct.cityLevel && '直飞参考价可能覆盖同城其他机场。', data.partialSearch && '部分候选未完成核价。'].filter(Boolean).join(' '))}</div>`;
     statusText.textContent = '实时数据已接通';
 
     // 汇总

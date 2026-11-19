@@ -4,8 +4,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
+const { execFile } = require('child_process');
 const { CITIES } = require('./lib/cities');
-const { search } = require('./lib/engine');
 
 // 简单 .env 加载器（无第三方依赖）：项目根目录放 .env 即可覆盖默认配置
 function loadDotEnv() {
@@ -23,9 +23,17 @@ function loadDotEnv() {
   } catch { /* .env 缺失或损坏时忽略 */ }
 }
 loadDotEnv();
+const { search } = require('./lib/engine');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const APP_ID = 'hidden-city-tickets';
+const appUrl = `http://localhost:${PORT}`;
+const openOnStart = process.platform === 'win32' && process.argv.includes('--open');
+
+function openBrowser() {
+  execFile('explorer.exe', [appUrl], { windowsHide: true }, () => {});
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -54,10 +62,10 @@ function readBody(req, limit = 1024 * 64) {
     let size = 0;
     const chunks = [];
     req.on('data', (c) => {
+      if (size > limit) return;
       size += c.length;
       if (size > limit) {
-        reject(new Error('body too large'));
-        req.destroy();
+        reject(Object.assign(new Error('body too large'), { code: 'BODY_TOO_LARGE' }));
         return;
       }
       chunks.push(c);
@@ -89,10 +97,8 @@ function serveStatic(res, pathname) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const p = url.pathname;
-
   try {
+    const p = new URL(req.url, 'http://localhost').pathname;
     if (req.method === 'GET' && p === '/api/cities') {
       const slim = CITIES.map((c) => ({ code: c.code, city: c.city, en: c.en, airport: c.airport }));
       return sendJson(res, 200, { cities: slim });
@@ -101,13 +107,14 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && p === '/api/status') {
       return sendJson(res, 200, {
         ok: true,
+        app: APP_ID,
         version: 1,
         node: process.version,
         providers: {
           tripcom: '实时 · 国际航线（FlightSelectSearch 直连）',
           lycom: '实时 · 国内航线（同程接口直连）',
-          ctrip: '备用 · 国内航线（携程浏览器会话，风控时可自动启用）',
-          skyscanner: process.env.SKYSCANNER_API_KEY ? '已配置 API Key' : '未配置 API Key（可选）',
+          ctrip: process.env.CTRIP_BROWSER_ENABLED === '1' ? '备用 · 国内航线（本机浏览器）' : '浏览器备用源未启用',
+          skyscanner: '仅提供跳转链接',
         },
         config: {
           port: PORT,
@@ -127,8 +134,14 @@ const server = http.createServer(async (req, res) => {
       let body;
       try {
         body = JSON.parse(await readBody(req));
-      } catch {
+      } catch (error) {
+        if (error.code === 'BODY_TOO_LARGE') {
+          return sendJson(res, 413, { error: '请求体过大。' });
+        }
         return sendJson(res, 400, { error: '请求体不是有效的 JSON。' });
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return sendJson(res, 400, { error: '请求体必须是 JSON 对象。' });
       }
       const result = await search({
         from: String(body.from || '').toUpperCase(),
@@ -137,7 +150,8 @@ const server = http.createServer(async (req, res) => {
         mode: String(body.mode || 'auto'),
         cabin: String(body.cabin || 'economy'),
       });
-      return sendJson(res, result.error ? 400 : 200, result);
+      const { statusCode, ...payload } = result;
+      return sendJson(res, statusCode || (payload.error ? 400 : 200), payload);
     }
 
     if (req.method === 'GET' && p.startsWith('/api/')) {
@@ -155,15 +169,27 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.on('error', (err) => {
+server.on('error', async (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`\n端口 ${PORT} 已被占用。服务可能已经在运行，请直接打开 http://localhost:${PORT}，或关闭占用端口的进程后重试。\n`);
-    process.exit(1);
+    if (openOnStart) {
+      try {
+        const response = await fetch(`${appUrl}/api/status`, { signal: AbortSignal.timeout(2000) });
+        if (response.ok && (await response.json()).app === APP_ID) {
+          console.log(`甩尾票搜索已在运行：${appUrl}`);
+          openBrowser();
+          return;
+        }
+      } catch { /* 端口上的进程未返回本应用的状态 */ }
+    }
+    console.error(`\n端口 ${PORT} 已被占用。请在 .env 中更改 PORT，或关闭占用端口的进程后重试。\n`);
+    process.exitCode = 1;
+    return;
   }
   throw err;
 });
 
 server.listen(PORT, () => {
-  console.log(`甩尾票搜索已启动: http://localhost:${PORT}`);
-  console.log(`API 状态: http://localhost:${PORT}/api/status`);
+  console.log(`甩尾票搜索已启动：${appUrl}`);
+  console.log(`API 状态：${appUrl}/api/status`);
+  if (openOnStart) openBrowser();
 });
